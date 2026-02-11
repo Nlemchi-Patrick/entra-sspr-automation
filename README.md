@@ -648,6 +648,30 @@ Educational / portfolio use
 
 ## Test Image
 
-![Test](screenshots/01-enable-sspr.jpg)
+## Screenshots
+
+### 1. Enabling SSPR
+![Enable SSPR](./screenshots/01-enable-sspr.jpg)
+
+### 2. Authentication Methods Configuration
+![Authentication Methods](./screenshots/02-auth-methods.jpg)
+
+### 3. Test User Added to SSPR Group
+![SSPR Test User](./screenshots/03-sspr-test-user.jpg)
+
+### 4. User Reset Workflow
+![User Reset Workflow](./screenshots/04-user-reset.jpg)
+
+### 5. Test User Successful Sign-In
+![Test User Successful Sign-In](./screenshots/05-sspr-test-user-successful-signin.jpg)
+
+### 6. Microsoft Graph Connection
+![Graph Connect](./screenshots/06-graph-connect.jpg)
+
+### 7. Script Run Successful
+![Script Run Success](./screenshots/07-script-run-success.jpg)
+
+### 8. Group Members Verified
+![Group Members Verified](./screenshots/08-group-members-verified.jpg)
 
 
