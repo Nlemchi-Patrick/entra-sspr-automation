@@ -1,6 +1,0 @@
-# Ignore generated reports and logs
-reports/
-*.log
-
-# Ignore temporary files
-*.tmp
