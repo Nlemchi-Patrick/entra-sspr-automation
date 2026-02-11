@@ -1,661 +1,379 @@
-\# SSPR Implementation Guide
-
-\## Microsoft Entra ID Self-Service Password Reset (SSPR)
-
-\### Technical Runbook \& Deployment Procedure
-
-
+# SSPR Implementation Guide
+## Microsoft Entra ID Self-Service Password Reset (SSPR)
+### Technical Runbook & Deployment Procedure
 
 ---
 
-
-
-\# Purpose
-
-
+# Purpose
 
 This document provides a step-by-step technical implementation guide for deploying Self-Service Password Reset (SSRP) in Microsoft Entra ID using secure configuration practices and PowerShell automation.
 
-
-
-It is written as an operational runbook that an Identity or Systems Administrator can follow to deploy SSPR consistently across environments.
-
-
+It is written as an operational runbook that Identity, Security, or Systems Administrators can follow to deploy SSPR consistently across environments.
 
 ---
 
+# Scope
 
+## Covered
 
-\# Scope
+- SSPR enablement
+- Authentication methods configuration
+- Security group scoping
+- User onboarding
+- Automation via PowerShell + Microsoft Graph
+- Validation testing
+- Troubleshooting
+- Rollback procedures
 
+## Not Covered
 
-
-Covers:
-
-
-
-\- SSPR enablement
-
-\- Authentication methods configuration
-
-\- Security group scoping
-
-\- User onboarding
-
-\- Automation via PowerShell + Graph
-
-\- Validation testing
-
-\- Troubleshooting
-
-\- Rollback considerations
-
-
-
-Does NOT cover:
-
-
-
-\- Password policy design
-
-\- MFA enforcement
-
-\- Conditional Access
-
-
+- Password policy design
+- MFA enforcement
+- Conditional Access
 
 ---
 
+# Architecture Summary
 
-
-\# Architecture Summary
-
-
-
+```
 Users
-
-↓
-
+   ↓
 SSPR Security Group
-
-↓
-
+   ↓
 Authentication Methods Policy
-
-↓
-
+   ↓
 Microsoft Entra Password Reset Portal
+```
 
-
-
-
-
-
-Core principle:
-
-
-
+**Core principle:**  
 Group-based scoping + least privilege + automated provisioning
 
-
-
 ---
 
+# Prerequisites
 
-
-\# Prerequisites
-
-
-
-\## Roles Required
-
-
+## Roles Required
 
 One of:
 
-
-
-\- Global Administrator
-
-\- Authentication Policy Administrator
-
-\- Privileged Role Administrator
-
-
+- Global Administrator
+- Authentication Policy Administrator
+- Privileged Role Administrator
 
 ---
 
-
-
-\## Local Requirements
-
-
+## Local Requirements
 
 Install Microsoft Graph module:
 
-
-
 ```powershell
-
 Install-Module Microsoft.Graph -Scope CurrentUser
+```
 
 Verify:
 
-
-
-
+```powershell
 Get-Module Microsoft.Graph -ListAvailable
+```
 
-Phase 1 — Portal Configuration (Click-by-Click)
+---
 
-Step 1 — Open Entra Admin Center
+# Phase 1 — Portal Configuration (Click-by-Click)
+
+## Step 1 — Open Entra Admin Center
 
 Navigate to:
 
-
-
 https://entra.microsoft.com
 
-Step 2 — Enable SSPR
+---
+
+## Step 2 — Enable SSPR
 
 Go to:
 
+**Protection → Password reset**
 
+| Setting | Value |
+|--------|--------|
+| Self service password reset | Enabled |
+| Scope | Selected |
+| Selected group | SSPR-Users |
 
+Click **Save**
 
-Protection
+---
 
-→ Password reset
+## Step 3 — Configure Authentication Methods
 
-Set:
+**Password reset → Authentication methods**
 
+| Option | Value |
+|--------|--------|
+| Mobile phone | Enabled |
+| Email | Enabled |
+| Security questions | Disabled |
+| Number of methods required | 2 |
 
+Click **Save**
 
-Setting	Value
+---
 
-Self service password reset	Enabled
+## Step 4 — Registration Settings
 
-Scope	Selected
+**Password reset → Registration**
 
-Selected group	SSPR-Users
+| Setting | Value |
+|----------|-----------|
+| Require users to register | Yes |
+| Reconfirm methods | 180 days |
 
+---
 
-
-Click Save
-
-
-
-Step 3 — Configure Authentication Methods
-
-Navigate:
-
-
-Password reset → Authentication methods
-
-Recommended:
-
-
-
-Option	Value
-
-Mobile phone	Enabled
-
-Email	Enabled
-
-Security questions	Disabled (less secure)
-
-Number of methods required	2
-
-
-
-Click Save
-
-
-
-Step 4 — Registration Settings
-
-Navigate:
-
-
-
-
-Password reset → Registration
-
-Set:
-
-
-
-Require users to register: Yes
-
-
-
-Reconfirm methods: 180 days
-
-
-
-Phase 2 — PowerShell Automation
+# Phase 2 — PowerShell Automation
 
 All scripts are stored in:
 
-
-
+```
 /scripts
+```
 
-Step 1 — Connect to Graph
+---
 
-powershell
+## Step 1 — Connect to Microsoft Graph
 
-Copy code
+```powershell
+.\scripts\connect-graph.ps1
+```
 
-.\\scripts\\connect-graph.ps1
+**Permissions requested**
 
-Permissions requested:
+- User.ReadWrite.All
+- Group.ReadWrite.All
+- Policy.ReadWrite.AuthenticationMethod
 
+---
 
+## Step 2 — Create SSPR Security Group
 
-User.ReadWrite.All
-
-
-
-Group.ReadWrite.All
-
-
-
-Policy.ReadWrite.AuthenticationMethod
-
-
-
-Step 2 — Create SSPR Security Group
-
-
-.\\scripts\\create-sspr-group.ps1
+```powershell
+.\scripts\create-sspr-group.ps1
+```
 
 Creates:
 
-
-
-
+```
 SSPR-Users
+```
 
-Purpose:
+Purpose: used to scope who can use SSPR.
 
+---
 
+## Step 3 — Add Users to Group
 
-Used to scope who can use SSPR.
+### Single user
 
+```powershell
+.\scripts\add-users-to-sspr-group.ps1 -GroupId <group-id> -UserPrincipalName user@domain.com
+```
 
+### Bulk
 
-Step 3 — Add Users to Group
-
-Single user:
-
-
-
-
-.\\scripts\\add-users-to-sspr-group.ps1 -GroupId <group-id> -UserPrincipalName user@domain.com
-
-Bulk option:
-
-
-
-
+```powershell
 Import-Csv users.csv | ForEach-Object {
-
-&nbsp;   .\\scripts\\add-users-to-sspr-group.ps1 -GroupId <group-id> -UserPrincipalName $\_.UPN
-
+    .\scripts\add-users-to-sspr-group.ps1 -GroupId <group-id> -UserPrincipalName $_.UPN
 }
+```
 
-Step 4 — Audit User Readiness
+---
 
-Detect missing recovery methods:
+## Step 4 — Audit User Readiness
 
+```powershell
+.\scripts\audit-sspr-readiness.ps1
+```
 
+Outputs:
 
+- Display name
+- UPN
+- Missing phone numbers
 
-.\\scripts\\audit-sspr-readiness.ps1
+---
 
-Shows:
+## Step 5 — Export Compliance Report
 
-
-
-Display name
-
-
-
-UPN
-
-
-
-Missing phone numbers
-
-
-
-Step 5 — Export Compliance Report
-
-
-.\\scripts\\report-export.ps1
+```powershell
+.\scripts\report-export.ps1
+```
 
 Output:
 
-
-
-
+```
 /reports/sspr-readiness-report.csv
+```
 
-Use for:
+Used for:
 
+- Helpdesk follow-up
+- User onboarding
+- Compliance tracking
 
+---
 
-Helpdesk follow-up
+# Phase 3 — Testing
 
+## Test Case 1 — Successful Reset
 
+1. Open browser (incognito)
+2. Visit https://passwordreset.microsoftonline.com
+3. Enter test user
+4. Complete verification
+5. Set new password
 
-User onboarding
+**Expected:** login succeeds
 
+---
 
+## Test Case 2 — User Not in Group
 
-Compliance tracking
+**Expected:** reset option unavailable
 
+---
 
+## Test Case 3 — No Phone/Email
 
-Phase 3 — Testing
+**Expected:** prompted to register before reset
 
-Test Case 1 — Successful Reset
+---
 
-Steps:
+# Phase 4 — Screenshots
 
+Store images in:
 
-
-Open browser (incognito)
-
-
-
-Go to:
-
-https://passwordreset.microsoftonline.com
-
-
-
-Enter test user
-
-
-
-Complete verification
-
-
-
-Set new password
-
-
-
-Expected:
-
-
-
-Password change successful
-
-
-
-Login works
-
-
-
-Test Case 2 — User Not in Group
-
-Expected:
-
-
-
-Reset option unavailable
-
-
-
-Test Case 3 — No Phone/Email
-
-Expected:
-
-
-
-Prompt to register before reset
-
-
-
-Phase 4 — Screenshots
-
-Capture:
-
-
-
-Screenshot	Description
-
-01	SSPR enabled
-
-02	Authentication methods
-
-03	Group scoping
-
-04	Reset screen
-
-05	Success message
-
-
-
-Store in:
-
-
+```
 /screenshots
+```
 
-Operational Procedures
+| File | Description |
+|-------|-------------|
+| 01-enable-sspr.jpg | SSPR enabled |
+| 02-auth-methods.jpg | Authentication methods |
+| 03-sspr-test-user.jpg | Group scoping |
+| 04-user-reset.jpg | Reset screen |
+| 05-success.jpg | Success message |
 
-Onboard New Users
+Example:
 
-Add to SSPR group
+```markdown
+![Enable SSPR](screenshots/01-enable-sspr.jpg)
+```
 
+---
 
+# Operational Procedures
 
-Add phone/email
+## Onboard New Users
 
+- Add to SSPR group
+- Add phone/email
+- Notify user to register
 
+## Monthly Tasks
 
-Notify user to register
+- Run readiness audit
+- Export report
+- Follow up with non-compliant users
 
+---
 
+# Troubleshooting
 
-Monthly Tasks
+## Graph connection fails
 
-Run readiness audit
-
-
-
-Export report
-
-
-
-Follow up with non-compliant users
-
-
-
-Incident Handling
-
-If user cannot reset:
-
-
-
-Check:
-
-
-
-Group membership
-
-
-
-Phone/email present
-
-
-
-Policy enabled
-
-
-
-Tenant sync issues
-
-
-
-Troubleshooting
-
-Graph Connection Fails
-
-Fix:
-
-
-
-
+```powershell
 Update-Module Microsoft.Graph
+```
 
-User Not Receiving Code
-
-Check:
-
-
-
-Correct phone format (+234...)
-
-
-
-Carrier SMS issues
-
-
-
-Spam filters
-
-
-
-SSPR Not Showing
+## User not receiving code
 
 Check:
 
+- Correct phone format (+234...)
+- Carrier SMS issues
+- Spam filters
 
+## SSPR not showing
 
-Group assigned correctly
+Check:
 
+- Group membership
+- Scope set to Selected
+- User re-login required
 
+---
 
-Scope set to Selected
-
-
-
-User re-login required
-
-
-
-Rollback Procedure
+# Rollback Procedure
 
 If needed:
 
-
-
-Disable SSPR in portal
-
-
-
-Remove group scoping
-
-
-
-Remove users from group
-
-
+- Disable SSPR in portal
+- Remove group scoping
+- Remove users from group
 
 No passwords are modified automatically.
 
+---
 
+# Security Best Practices
 
-Security Best Practices
+- Use group scoping (never All users initially)
+- Require two methods
+- Avoid security questions
+- Review logs regularly
+- Follow least privilege
 
-Use group scoping (never All users initially)
+---
 
+# Risks & Mitigation
 
+| Risk | Mitigation |
+|--------|-----------|
+| Unauthorized reset | Multi-method verification |
+| Account lockout | Helpdesk fallback |
+| Missing contact info | Audit scripts |
+| Social engineering | MFA + logging |
 
-Require 2 methods
+---
 
+# Business Impact
 
+- Reduced helpdesk tickets
+- Faster recovery
+- Improved uptime
+- Lower operational cost
 
-Avoid security questions
+---
 
+# Ownership
 
+| Role | Responsibility |
+|-----------|----------------|
+| IAM Admin | Policy & automation |
+| Helpdesk | User assistance |
+| Security | Compliance monitoring |
 
-Review logs regularly
+---
 
-
-
-Follow least privilege
-
-
-
-Risks \& Mitigation
-
-Risk	Mitigation
-
-Unauthorized reset	Multi-method verification
-
-Account lockout	Helpdesk fallback
-
-Missing contact info	Audit scripts
-
-Social engineering	MFA + logging
-
-
-
-Business Impact
-
-Measured benefits:
-
-
-
-Reduced helpdesk tickets
-
-
-
-Faster recovery
-
-
-
-Improved uptime
-
-
-
-Lower operational cost
-
-
-
-Ownership
-
-Role	Responsibility
-
-IAM Admin	Policy \& automation
-
-Helpdesk	User assistance
-
-Security	Compliance monitoring
-
-
-
-Conclusion
+# Conclusion
 
 This implementation delivers:
 
-
-
-* Secure
-* Scalable
-* Automated
-* Operationally ready
-
-
+- Secure  
+- Scalable  
+- Automated  
+- Operationally ready  
 
 SSPR configured using repeatable automation aligns with modern IAM engineering and enterprise cloud best practices.
-
-
-
-
 
