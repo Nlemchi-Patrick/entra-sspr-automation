@@ -2,8 +2,5 @@
 reports/
 *.log
 
-# Ignore large screenshots if any
-screenshots/*.png
-
 # Ignore temporary files
 *.tmp
